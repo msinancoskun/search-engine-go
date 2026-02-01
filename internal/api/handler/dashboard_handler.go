@@ -63,6 +63,11 @@ func (h *DashboardHandler) Index(c *gin.Context) {
 		contentType = string(*req.ContentType)
 	}
 
+	username, exists := c.Get("username")
+	if !exists {
+		username = ""
+	}
+
 	c.HTML(http.StatusOK, "index.html", gin.H{
 		"title":       "Content Search Dashboard",
 		"items":       resp.Items,
@@ -74,5 +79,6 @@ func (h *DashboardHandler) Index(c *gin.Context) {
 		"sortBy":      req.SortBy,
 		"sortOrder":   req.SortOrder,
 		"contentType": contentType,
+		"username":    username,
 	})
 }

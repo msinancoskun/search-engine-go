@@ -27,11 +27,8 @@ func setupRouter(cfg *config.Config, deps *Dependencies) *gin.Engine {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
-	router.StaticFile("/docs/openapi.yaml", "./openapi.yaml")
-	router.GET("/docs", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "swagger.html", nil)
-	})
-
+	router.GET("/login", deps.AuthHandler.LoginPage)
+	
 	auth := router.Group("/api/v1/auth")
 	{
 		auth.POST("/login", deps.AuthHandler.Login)
@@ -40,8 +37,19 @@ func setupRouter(cfg *config.Config, deps *Dependencies) *gin.Engine {
 	v1 := router.Group("/api/v1")
 	v1.Use(middleware.JWTAuth(deps.JWTService, deps.Logger))
 	{
+		v1.POST("/auth/logout", deps.AuthHandler.Logout)
+		
 		v1.GET("/search", deps.ContentHandler.Search)
 		v1.GET("/content/:id", deps.ContentHandler.GetByID)
+	}
+	
+	docs := router.Group("/docs")
+	docs.Use(middleware.JWTAuthHTML(deps.JWTService, deps.Logger))
+	{
+		docs.StaticFile("/openapi.yaml", "./openapi.yaml")
+		docs.GET("", func(c *gin.Context) {
+			c.HTML(http.StatusOK, "swagger.html", nil)
+		})
 	}
 
 	router.Static("/static", "./web/static")
@@ -57,8 +65,13 @@ func setupRouter(cfg *config.Config, deps *Dependencies) *gin.Engine {
 		},
 	})
 	router.LoadHTMLGlob("web/templates/*")
-	router.GET("/", deps.DashboardHandler.Index)
-	router.GET("/dashboard", deps.DashboardHandler.Index)
+	
+	dashboard := router.Group("")
+	dashboard.Use(middleware.JWTAuthHTML(deps.JWTService, deps.Logger))
+	{
+		dashboard.GET("/", deps.DashboardHandler.Index)
+		dashboard.GET("/dashboard", deps.DashboardHandler.Index)
+	}
 
 	return router
 }

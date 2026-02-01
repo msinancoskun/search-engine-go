@@ -30,6 +30,10 @@ func NewAuthHandler(jwtService *service.JWTService, log *zap.Logger) *AuthHandle
 	}
 }
 
+func (h *AuthHandler) LoginPage(c *gin.Context) {
+	c.HTML(http.StatusOK, "login.html", nil)
+}
+
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -53,4 +57,10 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	h.log.Warn("Invalid credentials", zap.String("username", req.Username))
 	c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+}
+
+func (h *AuthHandler) Logout(c *gin.Context) {
+	// JWT tokens are stateless, so logout is handled client-side
+	// This endpoint is provided for consistency and future enhancements
+	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
 }

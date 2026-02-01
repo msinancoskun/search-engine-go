@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -102,7 +103,20 @@ func (rl *RateLimiter) Shutdown() {
 
 func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if c.Request.URL.Path == "/health" {
+		path := c.Request.URL.Path
+		
+		if path == "/health" || 
+		   path == "/login" ||
+		   path == "/" ||
+		   path == "/dashboard" ||
+		   strings.HasPrefix(path, "/static/") ||
+		   path == "/docs" ||
+		   strings.HasPrefix(path, "/docs/") {
+			c.Next()
+			return
+		}
+
+		if !strings.HasPrefix(path, "/api/") {
 			c.Next()
 			return
 		}
@@ -114,16 +128,22 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 		if !limiter.Allow() {
 			rl.logger.Warn("Rate limit exceeded",
 				zap.String("ip", ip),
-				zap.String("path", c.Request.URL.Path),
+				zap.String("path", path),
 				zap.String("method", c.Request.Method),
 			)
 
 			requestID := GetRequestID(c)
-			c.JSON(http.StatusTooManyRequests, gin.H{
-				"error":      "Rate limit exceeded",
-				"message":    "Too many requests. Please try again later.",
-				"request_id": requestID,
-			})
+			
+			acceptHeader := c.GetHeader("Accept")
+			if strings.HasPrefix(acceptHeader, "text/html") {
+				c.Redirect(http.StatusFound, "/login?error=rate_limit")
+			} else {
+				c.JSON(http.StatusTooManyRequests, gin.H{
+					"error":      "Rate limit exceeded",
+					"message":    "Too many requests. Please try again later.",
+					"request_id": requestID,
+				})
+			}
 			c.Abort()
 			return
 		}
