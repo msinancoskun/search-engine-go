@@ -1,0 +1,331 @@
+openapi: 3.0.3
+info:
+  title: Search Engine API
+  description: |
+    A RESTful API for searching and retrieving content from multiple providers.
+    The API aggregates content from various sources, calculates relevance scores,
+    and provides search capabilities with filtering and pagination.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: https://api.example.com
+    description: Production server
+
+tags:
+  - name: search
+    description: Content search operations
+  - name: content
+    description: Content retrieval operations
+  - name: health
+    description: Health check endpoints
+
+paths:
+  /api/v1/search:
+    get:
+      tags:
+        - search
+      summary: Search content
+      description: |
+        Search for content across all providers with optional filtering by content type.
+        Results are paginated and can be sorted by score, creation date, or popularity.
+      operationId: searchContent
+      parameters:
+        - name: query
+          in: query
+          description: Search query string
+          required: false
+          schema:
+            type: string
+            example: "golang tutorial"
+        - name: content_type
+          in: query
+          description: Filter by content type
+          required: false
+          schema:
+            $ref: '#/components/schemas/ContentType'
+        - name: page
+          in: query
+          description: Page number (1-indexed)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+            example: 1
+        - name: page_size
+          in: query
+          description: Number of items per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+            example: 20
+        - name: sort_by
+          in: query
+          description: Sort order for results
+          required: false
+          schema:
+            type: string
+            enum: [score, created_at, popularity]
+            default: score
+            example: "score"
+      responses:
+        '200':
+          description: Successful search response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+              example:
+                items:
+                  - id: 1
+                    provider_id: "provider1_123"
+                    provider: "provider1"
+                    title: "Example Video"
+                    type: "video"
+                    views: 1000
+                    likes: 50
+                    score: 15.5
+                    created_at: "2024-01-15T10:30:00Z"
+                total: 1
+                page: 1
+                page_size: 20
+                total_pages: 1
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Invalid request parameters"
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Rate limit exceeded"
+                message: "Too many requests. Please try again later."
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Internal server error"
+
+  /api/v1/content/{id}:
+    get:
+      tags:
+        - content
+      summary: Get content by ID
+      description: Retrieve a specific content item by its ID
+      operationId: getContentById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Content ID
+          schema:
+            type: integer
+            format: int64
+            example: 1
+      responses:
+        '200':
+          description: Content found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Content'
+              example:
+                id: 1
+                provider_id: "provider1_123"
+                provider: "provider1"
+                title: "Example Video"
+                type: "video"
+                views: 1000
+                likes: 50
+                reading_time: 0
+                reactions: 0
+                score: 15.5
+                created_at: "2024-01-15T10:30:00Z"
+        '400':
+          description: Invalid ID format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Invalid ID"
+        '404':
+          description: Content not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Content not found"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /health:
+    get:
+      tags:
+        - health
+      summary: Health check
+      description: Check if the API is running and healthy
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+              example:
+                status: "ok"
+
+components:
+  schemas:
+    Content:
+      type: object
+      required:
+        - id
+        - provider_id
+        - provider
+        - title
+        - type
+        - created_at
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Unique content ID
+          example: 1
+        provider_id:
+          type: string
+          description: Provider-specific content ID
+          example: "provider1_123"
+        provider:
+          type: string
+          description: Provider name
+          example: "provider1"
+        title:
+          type: string
+          description: Content title
+          example: "Example Video Tutorial"
+        type:
+          $ref: '#/components/schemas/ContentType'
+        views:
+          type: integer
+          description: Number of views (for video content)
+          minimum: 0
+          example: 1000
+        likes:
+          type: integer
+          description: Number of likes
+          minimum: 0
+          example: 50
+        reading_time:
+          type: integer
+          description: Reading time in minutes (for text content)
+          minimum: 0
+          example: 5
+        reactions:
+          type: integer
+          description: Number of reactions (for text content)
+          minimum: 0
+          example: 25
+        score:
+          type: number
+          format: float
+          description: Calculated relevance score
+          example: 15.5
+        created_at:
+          type: string
+          format: date-time
+          description: Content creation timestamp
+          example: "2024-01-15T10:30:00Z"
+
+    ContentType:
+      type: string
+      enum:
+        - video
+        - text
+      description: Type of content
+      example: "video"
+
+    SearchResponse:
+      type: object
+      required:
+        - items
+        - total
+        - page
+        - page_size
+        - total_pages
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Content'
+          description: List of content items
+        total:
+          type: integer
+          description: Total number of matching items
+          minimum: 0
+          example: 42
+        page:
+          type: integer
+          description: Current page number
+          minimum: 1
+          example: 1
+        page_size:
+          type: integer
+          description: Number of items per page
+          minimum: 1
+          maximum: 100
+          example: 20
+        total_pages:
+          type: integer
+          description: Total number of pages
+          minimum: 0
+          example: 3
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "Invalid request parameters"
+        message:
+          type: string
+          description: Additional error details
+          example: "The provided page number is invalid"
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication (future enhancement)
